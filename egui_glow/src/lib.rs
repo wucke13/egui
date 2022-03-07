@@ -176,8 +176,10 @@ impl EguiGlow {
         let shapes = std::mem::take(&mut self.shapes);
         let mut textures_delta = std::mem::take(&mut self.textures_delta);
 
-        for (id, image_delta) in textures_delta.set {
-            self.painter.set_texture(gl, id, &image_delta);
+        for (id, image_delta_queue) in textures_delta.set {
+            for image_delta in image_delta_queue {
+                self.painter.set_texture(gl, id, &image_delta);
+            }
         }
 
         let clipped_meshes = self.egui_ctx.tessellate(shapes);

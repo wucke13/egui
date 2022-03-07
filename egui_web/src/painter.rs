@@ -29,8 +29,10 @@ pub trait Painter {
         pixels_per_point: f32,
         textures_delta: &egui::TexturesDelta,
     ) -> Result<(), JsValue> {
-        for (id, image_delta) in &textures_delta.set {
-            self.set_texture(*id, image_delta);
+        for (id, image_delta_queue) in &textures_delta.set {
+            for image_delta in image_delta_queue {
+                self.set_texture(*id, image_delta);
+            }
         }
 
         self.paint_meshes(clipped_meshes, pixels_per_point)?;
