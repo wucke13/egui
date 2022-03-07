@@ -38,7 +38,7 @@ impl TextureManager {
             retain_count: 1,
         });
 
-        self.delta.set.insert(id, ImageDelta::full(image));
+        self.delta.set.insert(id, vec![ImageDelta::full(image)]);
         id
     }
 
@@ -46,11 +46,14 @@ impl TextureManager {
     /// or update a region of it.
     pub fn set(&mut self, id: TextureId, delta: ImageDelta) {
         if let Some(meta) = self.metas.get_mut(&id) {
+            let change_queue = self.delta.set.entry(id).or_insert_with(|| Vec::with_capacity(1));
             if delta.is_whole() {
                 meta.size = delta.image.size();
                 meta.bytes_per_pixel = delta.image.bytes_per_pixel();
+                // since we update the whole image, we can discard all old enqueued deltas
+                change_queue.clear();
             }
-            self.delta.set.insert(id, delta);
+            change_queue.push(delta);
         } else {
             crate::epaint_assert!(
                 false,
@@ -150,7 +153,7 @@ impl TextureMeta {
 #[must_use = "The painter must take care of this"]
 pub struct TexturesDelta {
     /// New or changed textures. Apply before painting.
-    pub set: AHashMap<TextureId, ImageDelta>,
+    pub set: AHashMap<TextureId, Vec<ImageDelta>>,
 
     /// Textures to free after painting.
     pub free: Vec<TextureId>,
@@ -177,19 +180,21 @@ impl std::fmt::Debug for TexturesDelta {
         let mut debug_struct = f.debug_struct("TexturesDelta");
         if !self.set.is_empty() {
             let mut string = String::new();
-            for (tex_id, delta) in &self.set {
-                let size = delta.image.size();
-                if let Some(pos) = delta.pos {
-                    string += &format!(
-                        "{:?} partial ([{} {}] - [{} {}]), ",
-                        tex_id,
-                        pos[0],
-                        pos[1],
-                        pos[0] + size[0],
-                        pos[1] + size[1]
-                    );
-                } else {
-                    string += &format!("{:?} full {}x{}, ", tex_id, size[0], size[1]);
+            for (tex_id, delta_queue) in &self.set {
+                for delta in delta_queue {
+                    let size = delta.image.size();
+                    if let Some(pos) = delta.pos {
+                        string += &format!(
+                            "{:?} partial ([{} {}] - [{} {}]), ",
+                            tex_id,
+                            pos[0],
+                            pos[1],
+                            pos[0] + size[0],
+                            pos[1] + size[1]
+                        );
+                    } else {
+                        string += &format!("{:?} full {}x{}, ", tex_id, size[0], size[1]);
+                    }
                 }
             }
             debug_struct.field("set", &string);

@@ -73,8 +73,10 @@ impl Painter {
         clipped_meshes: Vec<egui::ClippedMesh>,
         textures_delta: &egui::TexturesDelta,
     ) {
-        for (id, image_delta) in &textures_delta.set {
-            self.set_texture(display, *id, image_delta);
+        for (id, image_delta_queue) in &textures_delta.set {
+            for image_delta in image_delta_queue {
+                self.set_texture(display, *id, image_delta);
+            }
         }
 
         self.paint_meshes(display, target, pixels_per_point, clipped_meshes);
